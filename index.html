@@ -216,6 +216,16 @@
                         <div class="card-subtitle">Filtered</div>
                     </div>
                     <div class="card">
+                        <h3>Escalation Rate</h3>
+                        <div class="card-value" id="overallEscalation">-</div>
+                        <div class="card-trend" id="escalationTrend"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Avg CSAT</h3>
+                        <div class="card-value" id="overallCsat">-</div>
+                        <div class="card-trend" id="csatTrend"></div>
+                    </div>
+                    <div class="card">
                         <h3>CSAT Responses</h3>
                         <div class="card-value" id="csatResponses">-</div>
                         <div class="card-subtitle">With ratings</div>
@@ -236,14 +246,6 @@
                                 PNG
                             </button>
                         </div>
-                        <div class="chart-axis-controls">
-                            <span class="axis-label">Y-Axis:</span>
-                            <input type="number" id="escalationYMin" placeholder="Min" min="0" max="100" value="0" step="1">
-                            <span class="axis-separator">to</span>
-                            <input type="number" id="escalationYMax" placeholder="Max" min="0" max="100" value="100" step="1">
-                            <span class="axis-unit">%</span>
-                            <button class="axis-apply-btn" id="applyEscalationAxis">Apply</button>
-                        </div>
                         <canvas id="escalationChart"></canvas>
                     </div>
                     <div class="chart-container">
@@ -257,13 +259,6 @@
                                 </svg>
                                 PNG
                             </button>
-                        </div>
-                        <div class="chart-axis-controls">
-                            <span class="axis-label">Y-Axis:</span>
-                            <input type="number" id="csatYMin" placeholder="Min" min="0" max="5" value="0" step="0.5">
-                            <span class="axis-separator">to</span>
-                            <input type="number" id="csatYMax" placeholder="Max" min="0" max="5" value="5" step="0.5">
-                            <button class="axis-apply-btn" id="applyCsatAxis">Apply</button>
                         </div>
                         <canvas id="csatChart"></canvas>
                     </div>

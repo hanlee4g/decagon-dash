@@ -6,10 +6,6 @@ class AnalyticsDashboard {
         this.filteredData = [];
         this.userContactCounts = {};
         this.charts = {};
-        this.axisSettings = {
-            escalation: { min: 0, max: 100 },
-            csat: { min: 0, max: 5 }
-        };
         this.init();
     }
 
@@ -158,29 +154,6 @@ class AnalyticsDashboard {
         // Mobile menu toggle
         document.getElementById('menuToggle').addEventListener('click', () => {
             document.getElementById('sidebar').classList.toggle('open');
-        });
-
-        // Y-axis controls for Escalation chart
-        document.getElementById('applyEscalationAxis').addEventListener('click', () => {
-            this.updateEscalationAxis();
-        });
-
-        // Y-axis controls for CSAT chart
-        document.getElementById('applyCsatAxis').addEventListener('click', () => {
-            this.updateCsatAxis();
-        });
-
-        // Allow Enter key to apply axis changes
-        ['escalationYMin', 'escalationYMax'].forEach(id => {
-            document.getElementById(id).addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') this.updateEscalationAxis();
-            });
-        });
-
-        ['csatYMin', 'csatYMax'].forEach(id => {
-            document.getElementById(id).addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') this.updateCsatAxis();
-            });
         });
 
         // Close sidebar when clicking outside on mobile
@@ -432,34 +405,47 @@ class AnalyticsDashboard {
 
     updateSummaryCards(weeklyData) {
         const totalRecords = this.filteredData.length;
+        const totalEscalated = this.filteredData.filter(r => r.escalated === 'Yes').length;
+        const escalationRate = totalRecords > 0 ? (totalEscalated / totalRecords) * 100 : 0;
         
         const csatValues = this.filteredData
             .map(r => r.csat)
             .filter(v => v && !isNaN(parseInt(v)))
             .map(v => parseInt(v));
+        const csatAverage = csatValues.length > 0 
+            ? csatValues.reduce((a, b) => a + b, 0) / csatValues.length 
+            : 0;
 
         document.getElementById('totalRecords').textContent = totalRecords.toLocaleString();
+        document.getElementById('overallEscalation').textContent = `${escalationRate.toFixed(1)}%`;
+        document.getElementById('overallCsat').textContent = csatAverage > 0 ? csatAverage.toFixed(2) : '-';
         document.getElementById('csatResponses').textContent = csatValues.length.toLocaleString();
-    }
 
-    updateEscalationAxis() {
-        const min = parseFloat(document.getElementById('escalationYMin').value);
-        const max = parseFloat(document.getElementById('escalationYMax').value);
-        
-        if (!isNaN(min) && !isNaN(max) && min < max) {
-            this.axisSettings.escalation = { min, max };
-            this.updateDashboard();
+        // Update trends (last week vs previous week)
+        if (weeklyData.length >= 2) {
+            const lastWeek = weeklyData[weeklyData.length - 1];
+            
+            this.updateTrendBadge('escalationTrend', lastWeek.escalationTrend, true);
+            this.updateTrendBadge('csatTrend', lastWeek.csatTrend, false);
+        } else {
+            document.getElementById('escalationTrend').innerHTML = '';
+            document.getElementById('csatTrend').innerHTML = '';
         }
     }
 
-    updateCsatAxis() {
-        const min = parseFloat(document.getElementById('csatYMin').value);
-        const max = parseFloat(document.getElementById('csatYMax').value);
-        
-        if (!isNaN(min) && !isNaN(max) && min < max) {
-            this.axisSettings.csat = { min, max };
-            this.updateDashboard();
+    updateTrendBadge(elementId, value, inversePositive = false) {
+        const element = document.getElementById(elementId);
+        if (value === null || isNaN(value)) {
+            element.innerHTML = '';
+            return;
         }
+
+        const isPositive = inversePositive ? value < 0 : value > 0;
+        const arrow = value > 0 ? '↑' : value < 0 ? '↓' : '→';
+        const className = value === 0 ? 'neutral' : (isPositive ? 'positive' : 'negative');
+        
+        element.className = `card-trend ${className}`;
+        element.innerHTML = `${arrow} ${Math.abs(value).toFixed(1)}% vs prev week`;
     }
 
     updateCharts(weeklyData) {
@@ -483,8 +469,8 @@ class AnalyticsDashboard {
         }, {
             scales: {
                 y: {
-                    min: this.axisSettings.escalation.min,
-                    max: this.axisSettings.escalation.max,
+                    beginAtZero: true,
+                    max: 100,
                     ticks: {
                         callback: (value) => value + '%',
                         color: '#6e6e73'
@@ -529,10 +515,10 @@ class AnalyticsDashboard {
         }, {
             scales: {
                 y: {
-                    min: this.axisSettings.csat.min,
-                    max: this.axisSettings.csat.max,
+                    beginAtZero: true,
+                    max: 5,
                     ticks: {
-                        stepSize: this.axisSettings.csat.max <= 5 ? 0.5 : 1,
+                        stepSize: 1,
                         color: '#6e6e73'
                     },
                     grid: {

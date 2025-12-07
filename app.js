@@ -464,6 +464,7 @@ class AnalyticsDashboard {
                     min: escalationState.min,
                     max: escalationState.max,
                     ticks: {
+                        stepSize: 20,
                         callback: (value) => value + '%',
                         color: '#6e6e73'
                     },
@@ -618,6 +619,16 @@ class AnalyticsDashboard {
                     }
                 }
 
+                // Escalation chart: round to whole percentages
+                if (stateKey === 'escalationChart') {
+                    state.min = Math.floor(state.min);
+                    state.max = Math.ceil(state.max);
+                    // Ensure at least 1% range
+                    if (state.max - state.min < 1) {
+                        state.max = state.min + 1;
+                    }
+                }
+
                 this.updateChartYAxis(id, stateKey);
             }, { passive: false });
 
@@ -684,6 +695,12 @@ class AnalyticsDashboard {
             state.min = Math.max(state.defaultMin, newMin);
             state.max = Math.min(state.defaultMax, newMax);
 
+            // Escalation chart: round to whole percentages
+            if (stateKey === 'escalationChart') {
+                state.min = Math.floor(state.min);
+                state.max = Math.ceil(state.max);
+            }
+
             this.updateChartYAxis(chartId, stateKey);
         });
 
@@ -704,7 +721,7 @@ class AnalyticsDashboard {
         chart.options.scales.y.min = state.min;
         chart.options.scales.y.max = state.max;
 
-        // Update step size for CSAT chart based on zoom level
+        // Update step size based on zoom level
         if (stateKey === 'csatChart') {
             const range = state.max - state.min;
             if (range <= 1) {
@@ -713,6 +730,18 @@ class AnalyticsDashboard {
                 chart.options.scales.y.ticks.stepSize = 0.25;
             } else {
                 chart.options.scales.y.ticks.stepSize = 1;
+            }
+        } else if (stateKey === 'escalationChart') {
+            // Escalation chart: always use whole number steps
+            const range = state.max - state.min;
+            if (range <= 10) {
+                chart.options.scales.y.ticks.stepSize = 1;
+            } else if (range <= 25) {
+                chart.options.scales.y.ticks.stepSize = 5;
+            } else if (range <= 50) {
+                chart.options.scales.y.ticks.stepSize = 10;
+            } else {
+                chart.options.scales.y.ticks.stepSize = 20;
             }
         }
 

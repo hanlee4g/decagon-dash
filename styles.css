@@ -445,6 +445,69 @@ select[multiple] option:checked {
     height: 14px;
 }
 
+/* Chart Axis Controls */
+.chart-axis-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.6rem 0.8rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    flex-wrap: wrap;
+}
+
+.chart-axis-controls .axis-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.chart-axis-controls input[type="number"] {
+    width: 70px;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.8rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
+    text-align: center;
+}
+
+.chart-axis-controls input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.chart-axis-controls .axis-separator {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.chart-axis-controls .axis-unit {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.axis-apply-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 0.4rem 0.7rem;
+    font-size: 0.75rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition);
+    margin-left: auto;
+}
+
+.axis-apply-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
 canvas {
     width: 100% !important;
     max-height: 300px;

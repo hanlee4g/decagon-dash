@@ -6,6 +6,29 @@ class AnalyticsDashboard {
         this.filteredData = [];
         this.userContactCounts = {};
         this.charts = {};
+        // Y-axis zoom/pan state for charts
+        this.chartYAxisState = {
+            escalationChart: {
+                min: 0,
+                max: 100,
+                defaultMin: 0,
+                defaultMax: 100
+            },
+            csatChart: {
+                min: 0,
+                max: 5,
+                defaultMin: 0,
+                defaultMax: 5
+            }
+        };
+        // Track drag state for y-axis panning
+        this.dragState = {
+            isDragging: false,
+            chartId: null,
+            startY: 0,
+            startMin: 0,
+            startMax: 0
+        };
         this.init();
     }
 
@@ -405,51 +428,20 @@ class AnalyticsDashboard {
 
     updateSummaryCards(weeklyData) {
         const totalRecords = this.filteredData.length;
-        const totalEscalated = this.filteredData.filter(r => r.escalated === 'Yes').length;
-        const escalationRate = totalRecords > 0 ? (totalEscalated / totalRecords) * 100 : 0;
         
         const csatValues = this.filteredData
             .map(r => r.csat)
             .filter(v => v && !isNaN(parseInt(v)))
             .map(v => parseInt(v));
-        const csatAverage = csatValues.length > 0 
-            ? csatValues.reduce((a, b) => a + b, 0) / csatValues.length 
-            : 0;
 
         document.getElementById('totalRecords').textContent = totalRecords.toLocaleString();
-        document.getElementById('overallEscalation').textContent = `${escalationRate.toFixed(1)}%`;
-        document.getElementById('overallCsat').textContent = csatAverage > 0 ? csatAverage.toFixed(2) : '-';
         document.getElementById('csatResponses').textContent = csatValues.length.toLocaleString();
-
-        // Update trends (last week vs previous week)
-        if (weeklyData.length >= 2) {
-            const lastWeek = weeklyData[weeklyData.length - 1];
-            
-            this.updateTrendBadge('escalationTrend', lastWeek.escalationTrend, true);
-            this.updateTrendBadge('csatTrend', lastWeek.csatTrend, false);
-        } else {
-            document.getElementById('escalationTrend').innerHTML = '';
-            document.getElementById('csatTrend').innerHTML = '';
-        }
-    }
-
-    updateTrendBadge(elementId, value, inversePositive = false) {
-        const element = document.getElementById(elementId);
-        if (value === null || isNaN(value)) {
-            element.innerHTML = '';
-            return;
-        }
-
-        const isPositive = inversePositive ? value < 0 : value > 0;
-        const arrow = value > 0 ? '↑' : value < 0 ? '↓' : '→';
-        const className = value === 0 ? 'neutral' : (isPositive ? 'positive' : 'negative');
-        
-        element.className = `card-trend ${className}`;
-        element.innerHTML = `${arrow} ${Math.abs(value).toFixed(1)}% vs prev week`;
     }
 
     updateCharts(weeklyData) {
         const labels = weeklyData.map(w => w.label);
+        const escalationState = this.chartYAxisState.escalationChart;
+        const csatState = this.chartYAxisState.csatChart;
         
         // Escalation Rate Chart
         this.renderChart('escalationChart', {
@@ -469,8 +461,8 @@ class AnalyticsDashboard {
         }, {
             scales: {
                 y: {
-                    beginAtZero: true,
-                    max: 100,
+                    min: escalationState.min,
+                    max: escalationState.max,
                     ticks: {
                         callback: (value) => value + '%',
                         color: '#6e6e73'
@@ -515,10 +507,10 @@ class AnalyticsDashboard {
         }, {
             scales: {
                 y: {
-                    beginAtZero: true,
-                    max: 5,
+                    min: csatState.min,
+                    max: csatState.max,
                     ticks: {
-                        stepSize: 1,
+                        stepSize: csatState.max <= 1 ? 0.1 : (csatState.max <= 2 ? 0.25 : 1),
                         color: '#6e6e73'
                     },
                     grid: {
@@ -544,6 +536,9 @@ class AnalyticsDashboard {
                 }
             }
         });
+
+        // Setup chart interaction handlers (only once)
+        this.setupChartInteractions();
     }
 
     renderChart(canvasId, data, additionalOptions = {}) {
@@ -573,6 +568,155 @@ class AnalyticsDashboard {
                 scales: additionalOptions.scales
             }
         });
+    }
+
+    setupChartInteractions() {
+        // Only setup once
+        if (this.chartInteractionsSetup) return;
+        this.chartInteractionsSetup = true;
+
+        const chartConfigs = [
+            { id: 'escalationChart', stateKey: 'escalationChart' },
+            { id: 'csatChart', stateKey: 'csatChart' }
+        ];
+
+        chartConfigs.forEach(({ id, stateKey }) => {
+            const canvas = document.getElementById(id);
+            if (!canvas) return;
+
+            // Wheel zoom handler
+            canvas.addEventListener('wheel', (e) => {
+                const chart = this.charts[id];
+                if (!chart) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                // Check if mouse is over y-axis area (left ~60px)
+                const chartArea = chart.chartArea;
+                if (x > chartArea.left) return; // Not on y-axis
+
+                e.preventDefault();
+
+                const state = this.chartYAxisState[stateKey];
+                const range = state.max - state.min;
+                const zoomFactor = 0.1;
+                const delta = e.deltaY > 0 ? 1 : -1; // Scroll down = zoom out, up = zoom in
+
+                if (delta > 0) {
+                    // Zoom out - expand range
+                    const expandAmount = range * zoomFactor;
+                    state.min = Math.max(state.defaultMin, state.min - expandAmount / 2);
+                    state.max = Math.min(state.defaultMax, state.max + expandAmount / 2);
+                } else {
+                    // Zoom in - shrink range (minimum range to prevent over-zoom)
+                    const minRange = (state.defaultMax - state.defaultMin) * 0.05;
+                    if (range > minRange) {
+                        const shrinkAmount = range * zoomFactor;
+                        state.min = state.min + shrinkAmount / 2;
+                        state.max = state.max - shrinkAmount / 2;
+                    }
+                }
+
+                this.updateChartYAxis(id, stateKey);
+            }, { passive: false });
+
+            // Drag pan handlers
+            canvas.addEventListener('mousedown', (e) => {
+                const chart = this.charts[id];
+                if (!chart) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                // Check if mouse is over y-axis area
+                const chartArea = chart.chartArea;
+                if (x > chartArea.left) return; // Not on y-axis
+
+                const state = this.chartYAxisState[stateKey];
+                this.dragState = {
+                    isDragging: true,
+                    chartId: id,
+                    stateKey: stateKey,
+                    startY: e.clientY,
+                    startMin: state.min,
+                    startMax: state.max
+                };
+
+                canvas.style.cursor = 'ns-resize';
+            });
+        });
+
+        // Global mouse move and up handlers for drag
+        document.addEventListener('mousemove', (e) => {
+            if (!this.dragState.isDragging) return;
+
+            const { chartId, stateKey, startY, startMin, startMax } = this.dragState;
+            const chart = this.charts[chartId];
+            if (!chart) return;
+
+            const state = this.chartYAxisState[stateKey];
+            const canvas = document.getElementById(chartId);
+            const rect = canvas.getBoundingClientRect();
+            const chartArea = chart.chartArea;
+            const chartHeight = chartArea.bottom - chartArea.top;
+
+            // Calculate drag distance and convert to value change
+            const deltaY = e.clientY - startY;
+            const range = startMax - startMin;
+            const valueChange = (deltaY / chartHeight) * range;
+
+            // Apply pan (shift both min and max)
+            let newMin = startMin + valueChange;
+            let newMax = startMax + valueChange;
+
+            // Clamp to default bounds
+            if (newMin < state.defaultMin) {
+                newMax += (state.defaultMin - newMin);
+                newMin = state.defaultMin;
+            }
+            if (newMax > state.defaultMax) {
+                newMin -= (newMax - state.defaultMax);
+                newMax = state.defaultMax;
+            }
+
+            // Final clamp
+            state.min = Math.max(state.defaultMin, newMin);
+            state.max = Math.min(state.defaultMax, newMax);
+
+            this.updateChartYAxis(chartId, stateKey);
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (this.dragState.isDragging) {
+                const canvas = document.getElementById(this.dragState.chartId);
+                if (canvas) canvas.style.cursor = '';
+                this.dragState.isDragging = false;
+            }
+        });
+    }
+
+    updateChartYAxis(chartId, stateKey) {
+        const chart = this.charts[chartId];
+        if (!chart) return;
+
+        const state = this.chartYAxisState[stateKey];
+        chart.options.scales.y.min = state.min;
+        chart.options.scales.y.max = state.max;
+
+        // Update step size for CSAT chart based on zoom level
+        if (stateKey === 'csatChart') {
+            const range = state.max - state.min;
+            if (range <= 1) {
+                chart.options.scales.y.ticks.stepSize = 0.1;
+            } else if (range <= 2) {
+                chart.options.scales.y.ticks.stepSize = 0.25;
+            } else {
+                chart.options.scales.y.ticks.stepSize = 1;
+            }
+        }
+
+        chart.update('none'); // 'none' mode prevents animation for smoother interaction
     }
 
     updateTable(weeklyData) {
